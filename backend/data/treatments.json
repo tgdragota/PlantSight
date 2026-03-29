@@ -1,0 +1,121 @@
+{
+  "__default__": {
+    "disease_name": "Unknown Disease",
+    "cause": "Unknown pathogen",
+    "symptoms": "Visible leaf damage detected. Consult a local agronomist for confirmation.",
+    "organic": ["Remove and destroy affected leaves", "Improve air circulation around plants", "Avoid overhead irrigation"],
+    "chemical": ["Consult local agricultural extension office for recommended fungicides"],
+    "prevention": ["Regular scouting of plants", "Use certified disease-free seeds", "Practice crop rotation"],
+    "urgency": "medium"
+  },
+
+  "Tomato___Late_blight": {
+    "disease_name": "Late Blight",
+    "cause": "Phytophthora infestans (oomycete)",
+    "symptoms": "Dark brown water-soaked lesions with pale green border; white mould on leaf undersides in humid conditions",
+    "organic": ["Remove and destroy infected plant parts immediately", "Apply copper-based fungicide (Bordeaux mixture 1%)", "Avoid overhead watering — water at soil level", "Improve plant spacing for air circulation"],
+    "chemical": ["Mancozeb 75WP — 2 g/L every 7 days", "Chlorothalonil 720SC — 2 mL/L", "Metalaxyl-M + Mancozeb — 2.5 g/L (systemic action)"],
+    "prevention": ["Use certified blight-resistant varieties (e.g. Mountain Merit)", "Rotate crops — minimum 3-year rotation", "Avoid planting near potato crops", "Destroy volunteer potato/tomato plants"],
+    "urgency": "high"
+  },
+
+  "Tomato___Early_blight": {
+    "disease_name": "Early Blight",
+    "cause": "Alternaria solani (fungus)",
+    "symptoms": "Dark brown target-ring lesions on older/lower leaves; yellow halo around spots; premature defoliation",
+    "organic": ["Remove lower infected leaves", "Apply neem oil spray (5 mL/L) every 10 days", "Mulch to prevent spore splash from soil", "Ensure adequate potassium nutrition"],
+    "chemical": ["Azoxystrobin 23SC — 1 mL/L (systemic)", "Iprodione 50WP — 1.5 g/L", "Tebuconazole 25EW — 1 mL/L"],
+    "prevention": ["Use resistant varieties", "Avoid wetting foliage", "Rotate crops annually", "Destroy crop debris after harvest"],
+    "urgency": "medium"
+  },
+
+  "Tomato___Tomato_mosaic_virus": {
+    "disease_name": "Tomato Mosaic Virus (ToMV)",
+    "cause": "Tobamovirus — mechanically transmitted",
+    "symptoms": "Mosaic pattern (light/dark green patches) on leaves; leaf distortion; stunted growth; reduced yield",
+    "organic": ["Remove and destroy infected plants immediately (do not compost)", "Disinfect tools with 10% bleach solution", "Control aphid populations with insecticidal soap", "Wash hands before handling plants"],
+    "chemical": ["No curative chemical treatment — prevention only", "Imidacloprid 70WG for aphid vector control — 0.5 g/L"],
+    "prevention": ["Use TMV-resistant varieties (marked Tm-2²)", "Use virus-free certified seeds", "Eliminate perennial weed hosts", "Strict hygiene protocols in greenhouse"],
+    "urgency": "high"
+  },
+
+  "Tomato___healthy": {
+    "disease_name": "Healthy Plant",
+    "cause": "No disease detected",
+    "symptoms": "Plant appears healthy with no visible signs of infection",
+    "organic": ["Continue regular monitoring", "Maintain balanced fertilisation (NPK)", "Water consistently — avoid stress"],
+    "chemical": [],
+    "prevention": ["Scout regularly for early detection", "Maintain weed-free zones around plants", "Rotate crops annually"],
+    "urgency": "low"
+  },
+
+  "Potato___Late_blight": {
+    "disease_name": "Potato Late Blight",
+    "cause": "Phytophthora infestans (oomycete)",
+    "symptoms": "Dark water-soaked lesions on leaves and stems; white sporulation on underside; tuber rot in severe cases",
+    "organic": ["Apply Bordeaux mixture (1%) at first sign", "Remove haulm 2 weeks before harvest", "Earthing up protects tubers"],
+    "chemical": ["Fluazinam 500SC — 1.5 mL/L (preventive)", "Cymoxanil + Mancozeb — 2.5 g/L", "Mandipropamid 250SC — 0.6 mL/L (curative)"],
+    "prevention": ["Plant certified disease-free seed tubers", "Use resistant varieties", "4-year crop rotation minimum", "Avoid excessive nitrogen fertiliser"],
+    "urgency": "high"
+  },
+
+  "Potato___Early_blight": {
+    "disease_name": "Potato Early Blight",
+    "cause": "Alternaria solani (fungus)",
+    "symptoms": "Circular brown lesions with concentric rings (target-board appearance) on older leaves",
+    "organic": ["Remove infected lower foliage", "Apply compost tea as foliar spray", "Ensure balanced nutrition — potassium deficiency worsens severity"],
+    "chemical": ["Chlorothalonil 720SC — 2 mL/L every 10 days", "Azoxystrobin 23SC — 1 mL/L", "Difenoconazole 25EC — 0.5 mL/L"],
+    "prevention": ["Use certified seed tubers", "Adequate plant spacing (60 × 30 cm)", "Avoid mechanical damage to foliage"],
+    "urgency": "medium"
+  },
+
+  "Corn___Common_rust": {
+    "disease_name": "Common Corn Rust",
+    "cause": "Puccinia sorghi (fungus)",
+    "symptoms": "Cinnamon-brown pustules (uredinia) scattered on both leaf surfaces; later turn black (telia)",
+    "organic": ["Remove severely infected leaves", "Apply sulfur-based fungicide (3 g/L) early", "Ensure adequate plant spacing"],
+    "chemical": ["Propiconazole 25EC — 1 mL/L", "Tebuconazole 25EW — 1 mL/L", "Azoxystrobin + Propiconazole — 1.5 mL/L"],
+    "prevention": ["Plant rust-resistant hybrids (Rp genes)", "Avoid late planting into high-risk periods", "Monitor susceptible varieties closely"],
+    "urgency": "medium"
+  },
+
+  "Corn___Northern_Leaf_Blight": {
+    "disease_name": "Northern Corn Leaf Blight (NCLB)",
+    "cause": "Setosphaeria turcica (fungus)",
+    "symptoms": "Long (5–15 cm) elliptical grey-green to tan cigar-shaped lesions on leaves; severe in cool-wet conditions",
+    "organic": ["Bury crop residue (reduces inoculum)", "Crop rotation with non-host crops", "Balanced nitrogen — avoid excess"],
+    "chemical": ["Azoxystrobin 23SC — 1 mL/L at tasselling", "Propiconazole 25EC — 1 mL/L", "Pyraclostrobin + Metconazole — 1.5 mL/L"],
+    "prevention": ["Resistant hybrids (Ht1, Ht2 genes)", "Minimum 2-year rotation", "Tillage to incorporate residue"],
+    "urgency": "medium"
+  },
+
+  "Grape___Black_rot": {
+    "disease_name": "Grape Black Rot",
+    "cause": "Guignardia bidwellii (fungus)",
+    "symptoms": "Reddish-brown circular spots on leaves; shriveled mummified black berries",
+    "organic": ["Remove mummified berries and infected canes", "Apply copper hydroxide (2 g/L) — key timing at bud break", "Ensure good canopy airflow by pruning"],
+    "chemical": ["Myclobutanil 20WP — 0.5 g/L", "Tebuconazole 25EW — 0.8 mL/L", "Mancozeb 75WP — 2 g/L (protectant)"],
+    "prevention": ["Remove all mummified fruit before dormancy", "Prune for open canopy", "Spray programme from bud break to berry set"],
+    "urgency": "high"
+  },
+
+  "Apple___Apple_scab": {
+    "disease_name": "Apple Scab",
+    "cause": "Venturia inaequalis (fungus)",
+    "symptoms": "Olive-green to brown velvety lesions on leaves; corky scab lesions on fruit; severe defoliation",
+    "organic": ["Collect and destroy fallen leaves in autumn", "Apply lime sulfur spray at silver-tip stage", "Urea foliar spray on fallen leaves reduces overwintering spores"],
+    "chemical": ["Captan 80WG — 2 g/L (protectant)", "Myclobutanil 20WP — 0.5 g/L (curative)", "Difenoconazole 25EC — 0.5 mL/L"],
+    "prevention": ["Plant scab-resistant cultivars", "Prune for open canopy structure", "Complete spray programme from green tip to petal fall"],
+    "urgency": "medium"
+  },
+
+  "Pepper,_bell___Bacterial_spot": {
+    "disease_name": "Bacterial Spot of Pepper",
+    "cause": "Xanthomonas axonopodis pv. vesicatoria (bacterium)",
+    "symptoms": "Small water-soaked lesions with yellow halo on leaves; raised scab-like spots on fruit",
+    "organic": ["Remove and destroy infected plant material", "Apply copper hydroxide (2 g/L) — preventive only", "Avoid overhead irrigation"],
+    "chemical": ["Copper oxychloride 50WP — 2.5 g/L", "Streptomycin sulfate 17WP — 0.6 g/L (regulated — check local rules)", "Kasugamycin 2SL — 1 mL/L"],
+    "prevention": ["Use certified disease-free transplants", "Resistant varieties where available", "Sanitise transplant trays and tools"],
+    "urgency": "medium"
+  }
+}
