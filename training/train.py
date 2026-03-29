@@ -33,6 +33,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
 from torch.cuda.amp import GradScaler, autocast
+from torch.utils.tensorboard import SummaryWriter
 import torchvision
 from torchvision import datasets, transforms, models
 
@@ -417,6 +418,13 @@ def main():
     criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smooth)
     scaler    = GradScaler(enabled=use_amp)
 
+    # ── TensorBoard ───────────────────────────────────────────────────
+    tb_dir = Path(args.output_dir) / "tensorboard"
+    writer = SummaryWriter(log_dir=str(tb_dir))
+    print(f"📊 TensorBoard logs → {tb_dir}")
+    print(f"   Open in browser: tensorboard --logdir {tb_dir}")
+    print(f"   Then go to:      http://localhost:6006\n")
+
     # ── History tracking ──────────────────────────────────────────────
     history = {
         "train_loss": [], "val_loss": [],
@@ -463,6 +471,12 @@ def main():
         history["val_top1"].append(val_top1)
         history["val_top5"].append(val_top5)
         history["phase"].append(1)
+
+        # TensorBoard logging
+        writer.add_scalars("Loss",     {"train": train_loss, "val": val_loss},   epoch)
+        writer.add_scalars("Accuracy", {"train_top1": train_top1, "val_top1": val_top1, "val_top5": val_top5}, epoch)
+        writer.add_scalar("LR/phase1", scheduler_p1.get_last_lr()[0], epoch)
+        writer.flush()
 
         early_stopping.step(val_top1, model, class_names)
 
@@ -511,6 +525,15 @@ def main():
         history["val_top5"].append(val_top5)
         history["phase"].append(2)
 
+        # TensorBoard logging
+        global_epoch = PHASE1_EPOCHS + epoch
+        writer.add_scalars("Loss",     {"train": train_loss, "val": val_loss},   global_epoch)
+        writer.add_scalars("Accuracy", {"train_top1": train_top1, "val_top1": val_top1, "val_top5": val_top5}, global_epoch)
+        lrs = [g["lr"] for g in optimizer_p2.param_groups]
+        writer.add_scalar("LR/backbone", lrs[0], global_epoch)
+        writer.add_scalar("LR/head",     lrs[1], global_epoch)
+        writer.flush()
+
         early_stopping.step(val_top1, model, class_names)
         if early_stopping.should_stop:
             print(f"\n🛑 Stopped early at epoch {epoch + PHASE1_EPOCHS} total")
@@ -554,6 +577,15 @@ def main():
     history["test_top5"] = test_top5
     with open(history_path, "w") as f:
         json.dump(history, f, indent=2)
+
+    # ── Close TensorBoard writer ──────────────────────────────────────
+    writer.add_hparams(
+        {"lr": args.lr, "lr_finetune": args.lr_finetune, "batch_size": args.batch_size,
+         "epochs": args.epochs, "label_smooth": args.label_smooth},
+        {"hparam/test_top1": history.get("test_top1", 0),
+         "hparam/test_top5": history.get("test_top5", 0)},
+    )
+    writer.close()
 
     # ── Plots ─────────────────────────────────────────────────────────
     save_plots(history, args.plots_dir)
