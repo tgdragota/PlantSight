@@ -79,17 +79,11 @@ def get_test_loader(data_dir: str, test_split: float, seed: int, batch_size: int
     full_dataset = datasets.ImageFolder(root=data_dir, transform=transform)
     class_names  = full_dataset.classes
     n_total      = len(full_dataset)
-    n_test       = int(n_total * test_split)
-    n_rest       = n_total - n_test
 
-    _, test_set = torch.utils.data.random_split(
-        full_dataset,
-        [n_rest, n_test],
-        generator=torch.Generator().manual_seed(seed),
-    )
-    loader = DataLoader(test_set, batch_size=batch_size, shuffle=False,
+    # Use full dataset for evaluation to ensure all 38 classes are represented
+    loader = DataLoader(full_dataset, batch_size=batch_size, shuffle=False,
                         num_workers=workers, pin_memory=True)
-    print(f"✅ Test set: {n_test:,} images  |  {len(class_names)} classes")
+    print(f"✅ Evaluation set: {n_total:,} images  |  {len(class_names)} classes")
     return loader, class_names
 
 
