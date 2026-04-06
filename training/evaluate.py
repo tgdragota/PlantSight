@@ -406,7 +406,7 @@ def main():
     all_preds_pt = np.argmax(all_probs, axis=1)
 
     top1_pt = accuracy_score(all_labels, all_preds_pt) * 100
-    top5_pt = top_k_accuracy_score(all_labels, all_probs, k=5) * 100
+    top5_pt = top_k_accuracy_score(all_labels, all_probs, k=5, labels=list(range(all_probs.shape[1]))) * 100
 
     print(f"\n   Top-1: {top1_pt:.2f}%  |  Top-5: {top5_pt:.2f}%")
 
