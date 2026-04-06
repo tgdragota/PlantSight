@@ -293,10 +293,17 @@ def plot_per_class_accuracy(class_names, cm, output_dir: Path):
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        per_class_acc = cm.diagonal() / cm.sum(axis=1) * 100
-        sorted_idx    = np.argsort(per_class_acc)
-        sorted_names  = [class_names[i].replace("___", " — ").replace("_", " ") for i in sorted_idx]
-        sorted_acc    = per_class_acc[sorted_idx]
+        row_sums = cm.sum(axis=1)
+        # Only keep classes that have at least 1 sample in test set
+        valid_idx = np.where(row_sums > 0)[0]
+        per_class_acc = np.where(row_sums > 0, cm.diagonal() / np.maximum(row_sums, 1) * 100, 0)
+        valid_acc     = per_class_acc[valid_idx]
+        valid_names   = [class_names[i].replace("___", " — ").replace("_", " ") for i in valid_idx]
+
+        sorted_order  = np.argsort(valid_acc)
+        sorted_idx    = valid_idx[sorted_order]
+        sorted_names  = [valid_names[i] for i in sorted_order]
+        sorted_acc    = valid_acc[sorted_order]
 
         colors = ["#ff5252" if a < 70 else "#ffab40" if a < 90 else "#00e676" for a in sorted_acc]
 
