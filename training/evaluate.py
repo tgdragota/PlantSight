@@ -411,8 +411,14 @@ def main():
     print(f"\n   Top-1: {top1_pt:.2f}%  |  Top-5: {top5_pt:.2f}%")
 
     # Per-class report
+    unique_labels = sorted(list(set(all_labels.tolist())))
+    used_names = [class_names[i] for i in unique_labels]
     class_report = classification_report(
-        all_labels, all_preds_pt, target_names=class_names, output_dict=True
+        all_labels, all_preds_pt,
+        labels=unique_labels,
+        target_names=used_names,
+        output_dict=True,
+        zero_division=0,
     )
 
     # Confusion matrix
