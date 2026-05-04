@@ -47,6 +47,7 @@ export default function ResultScreen({ route, navigation }) {
     infected_area   = null,
     healthy_area    = null,
     treatment       = {},
+    _mock           = true,
   } = result;
 
   const plant = predicted_class.includes("_")
@@ -61,9 +62,47 @@ export default function ResultScreen({ route, navigation }) {
   const hasTreatment    = treatment && Object.keys(treatment).length > 0;
 
   const onShare = async () => {
-    await Share.share({
-      message: `PlantSight: ${predicted_class.replace(/_/g, " ")} — ${fmtConf(confidence)} confidence. Severity: ${sevCfg.label}. Mode: ${cfg.label}.`,
-    });
+    const disease = predicted_class.replace(/_/g, " ");
+    const lines   = [
+      `PlantSight — Analysis Report`,
+      `──────────────────────────`,
+      `Disease   : ${disease}`,
+      `Confidence: ${fmtConf(confidence)}`,
+      `Severity  : ${sevCfg.label}`,
+      `Mode      : ${cfg.label}${mode === "edge" && !_mock ? " (TFLite on-device)" : ""}`,
+      `Latency   : ${Math.round(latency_ms)} ms`,
+    ];
+
+    if (top3.length > 1) {
+      lines.push(`──────────────────────────`);
+      lines.push(`Top predictions:`);
+      top3.forEach((t, i) => {
+        const lbl = String(t.label ?? t.class_name ?? "?").replace(/_/g, " ");
+        lines.push(`  ${i + 1}. ${lbl} — ${fmtConf(t.confidence ?? t.prob)}`);
+      });
+    }
+
+    if (treatment?.cause) {
+      lines.push(`──────────────────────────`);
+      lines.push(`Cause      : ${treatment.cause}`);
+    }
+    if (treatment?.immediate) lines.push(`Immediate  : ${treatment.immediate}`);
+    if (treatment?.chemical)  lines.push(`Chemical   : ${treatment.chemical}`);
+    if (treatment?.organic)   lines.push(`Organic    : ${treatment.organic}`);
+    if (treatment?.prevention)lines.push(`Prevention : ${treatment.prevention}`);
+
+    lines.push(`──────────────────────────`);
+    lines.push(`Shared from PlantSight (Master's Thesis)`);
+
+    const sharePayload = { message: lines.join("\n") };
+    // iOS: attach image to share sheet
+    if (imageUri) sharePayload.url = imageUri;
+
+    try {
+      await Share.share(sharePayload);
+    } catch (e) {
+      console.warn("[Share] failed:", e.message);
+    }
   };
 
   return (
@@ -163,6 +202,17 @@ export default function ResultScreen({ route, navigation }) {
               <Text style={[s.modePillLabel, { color: cfg.color }]}>{cfg.label}</Text>
             </View>
             <Text style={s.latencyText}>{Math.round(latency_ms)}ms</Text>
+            {mode === "edge" && (
+              <View style={[s.inferBadge, {
+                backgroundColor: _mock ? "rgba(255,171,64,0.12)" : "rgba(0,230,118,0.12)",
+                borderColor:     _mock ? "rgba(255,171,64,0.40)" : "rgba(0,230,118,0.40)",
+              }]}>
+                <View style={[s.inferDot, { backgroundColor: _mock ? "#ffab40" : "#00e676" }]} />
+                <Text style={[s.inferText, { color: _mock ? "#ffab40" : "#00e676" }]}>
+                  {_mock ? "MOCK" : "TFLite"}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -230,9 +280,9 @@ export default function ResultScreen({ route, navigation }) {
             </>
           ) : (
             <View style={s.noTreat}>
-              <Text style={s.noTreatTitle}>Treatment data unavailable in mock mode</Text>
+              <Text style={s.noTreatTitle}>No treatment data available</Text>
               <Text style={s.noTreatSub}>
-                Connect backend with real model weights to get the full treatment plan
+                Make sure the backend is running for Cloud / Hybrid modes
               </Text>
             </View>
           )}
@@ -325,6 +375,10 @@ const s = StyleSheet.create({
   modePillDotText:   { fontSize: 8, fontWeight: "900" },
   modePillLabel:     { fontSize: 11, fontWeight: "700" },
   latencyText:       { marginLeft: "auto", fontSize: 12, color: "rgba(232,245,233,0.35)", fontWeight: "600" },
+  inferBadge:        { flexDirection: "row", alignItems: "center", gap: 4,
+                       paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, marginLeft: 6 },
+  inferDot:          { width: 5, height: 5, borderRadius: 3 },
+  inferText:         { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
 
   /* section header shared */
   sectionHeader:     { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },

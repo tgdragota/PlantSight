@@ -1,15 +1,30 @@
 {
   "expo": {
-    "name": "plantsight-mobile",
-    "slug": "plantsight-mobile",
+    "name": "plantsight-app",
+    "slug": "plantsight-app",
     "version": "1.0.0",
-    "sdkVersion": "51.0.0",
-    "platforms": [
-      "ios",
-      "android"
-    ],
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
-      "bundleIdentifier": "com.anonymous.plantsight-mobile"
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.plantsight-app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }

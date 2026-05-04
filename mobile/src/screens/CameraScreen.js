@@ -7,11 +7,13 @@ import { useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { diagnoseImage, uriToBlob } from "../api/plantApi";
 import { runEdgeInference } from "../utils/edgeInference";
+import { buildHistoryRecord, saveHistoryRecord } from "../utils/historyStorage";
+import { Ionicons } from "@expo/vector-icons";
 
 const MODE_CFG = {
-  edge:   { color: "#00e676", label: "Edge AI",  tag: "E" },
-  hybrid: { color: "#ab47bc", label: "Hybrid",   tag: "H" },
-  cloud:  { color: "#42a5f5", label: "Cloud AI", tag: "C" },
+  edge:   { color: "#00e676", label: "Edge AI",  icon: "hardware-chip" },
+  hybrid: { color: "#ab47bc", label: "Hybrid",   icon: "git-merge"     },
+  cloud:  { color: "#42a5f5", label: "Cloud AI", icon: "cloud"         },
 };
 
 export default function CameraScreen({ route, navigation }) {
@@ -45,6 +47,8 @@ export default function CameraScreen({ route, navigation }) {
     if (!result.canceled) setImageUri(result.assets[0].uri);
   };
 
+  const CONFIDENCE_THRESHOLD = 0.70; // below this → not a plant leaf
+
   const diagnose = async () => {
     if (!imageUri) return;
     setLoading(true);
@@ -56,6 +60,30 @@ export default function CameraScreen({ route, navigation }) {
         const blob = await uriToBlob(imageUri);
         result = await diagnoseImage(blob, mode);
       }
+
+      // ── Validate: reject non-leaf images ──────────────────────────
+      const conf = result.confidence > 1 ? result.confidence / 100 : result.confidence;
+      if (conf < CONFIDENCE_THRESHOLD) {
+        Alert.alert(
+          "Image Not Recognized",
+          `The model is not confident this is a plant leaf (${Math.round(conf * 100)}% confidence).\n\nPlease use a clear, well-lit photo of a single leaf.`,
+          [
+            { text: "Try Again", style: "cancel", onPress: () => setImageUri(null) },
+            {
+              text: "Continue Anyway",
+              onPress: async () => {
+                await saveHistoryRecord(buildHistoryRecord(result, imageUri, mode));
+                navigation.navigate("Result", { result, imageUri, mode });
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // ── Save to local history ─────────────────────────────────────
+      await saveHistoryRecord(buildHistoryRecord(result, imageUri, mode));
+
       navigation.navigate("Result", { result, imageUri, mode });
     } catch (e) {
       Alert.alert("Diagnosis failed", e.message || "Check your connection and try again.");
@@ -75,9 +103,7 @@ export default function CameraScreen({ route, navigation }) {
         </TouchableOpacity>
         <Text style={s.headerTitle}>Scan Plant</Text>
         <View style={[s.modePill, { backgroundColor: cfg.color + "18", borderColor: cfg.color + "55" }]}>
-          <View style={[s.modePillTag, { backgroundColor: cfg.color + "22" }]}>
-            <Text style={[s.modePillTagText, { color: cfg.color }]}>{cfg.tag}</Text>
-          </View>
+          <Ionicons name={cfg.icon} size={13} color={cfg.color} />
           <Text style={[s.modePillText, { color: cfg.color }]}>{cfg.label}</Text>
         </View>
       </View>
@@ -105,8 +131,9 @@ export default function CameraScreen({ route, navigation }) {
           <View style={[s.previewWrap, { borderColor: cfg.color + "55" }]}>
             <Image source={{ uri: imageUri }} style={s.preview} resizeMode="cover" />
             <View style={[s.previewBadge, { backgroundColor: cfg.color + "22", borderColor: cfg.color + "55" }]}>
+              <Ionicons name={cfg.icon} size={11} color={cfg.color} />
               <Text style={[s.previewBadgeText, { color: cfg.color }]}>
-                {cfg.tag}  {cfg.label} mode
+                {cfg.label} mode
               </Text>
             </View>
             <TouchableOpacity style={s.changeBtn} onPress={() => setImageUri(null)}>
@@ -183,8 +210,6 @@ const s = StyleSheet.create({
   headerTitle:      { color: "#e8f5e9", fontWeight: "800", fontSize: 16 },
   modePill:         { flexDirection: "row", alignItems: "center", gap: 6,
                       paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
-  modePillTag:      { width: 18, height: 18, borderRadius: 4, alignItems: "center", justifyContent: "center" },
-  modePillTagText:  { fontSize: 9, fontWeight: "900", letterSpacing: 0.3 },
   modePillText:     { fontSize: 11, fontWeight: "700" },
 
   /* source buttons */
@@ -204,7 +229,7 @@ const s = StyleSheet.create({
   preview:          { width: "100%", height: 280 },
   previewBadge:     { position: "absolute", top: 10, left: 10, paddingHorizontal: 10,
                       paddingVertical: 4, borderRadius: 20, borderWidth: 1,
-                      flexDirection: "row", alignItems: "center" },
+                      flexDirection: "row", alignItems: "center", gap: 5 },
   previewBadgeText: { fontSize: 11, fontWeight: "700" },
   changeBtn:        { position: "absolute", bottom: 10, right: 10,
                       backgroundColor: "rgba(8,13,8,0.80)", paddingHorizontal: 12,

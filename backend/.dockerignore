@@ -1,0 +1,9 @@
+__pycache__
+*.pyc
+*.pyo
+.env
+.env.*
+plantsight.db
+assets/models/*.pth
+assets/models/*.tflite
+get-pip.py

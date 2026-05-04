@@ -4,11 +4,12 @@ import {
 } from "react-native";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { checkHealth } from "../api/plantApi";
+import { Ionicons } from "@expo/vector-icons";
 
 const MODES = [
   {
     key:   "edge",
-    tag:   "E",
+    icon:  "hardware-chip",
     label: "Edge AI",
     desc:  "On-device · Fully offline · Fastest",
     color: "#00e676",
@@ -17,7 +18,7 @@ const MODES = [
   },
   {
     key:   "hybrid",
-    tag:   "H",
+    icon:  "git-merge",
     label: "Hybrid",
     desc:  "Edge classify + Cloud segment",
     color: "#ab47bc",
@@ -26,7 +27,7 @@ const MODES = [
   },
   {
     key:   "cloud",
-    tag:   "C",
+    icon:  "cloud",
     label: "Cloud AI",
     desc:  "Full server GPU inference",
     color: "#42a5f5",
@@ -109,7 +110,9 @@ export default function HomeScreen({ navigation }) {
       {/* ── Header ───────────────────────────── */}
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Text style={s.headerLogo}>PS</Text>
+          <View style={s.headerLogoBox}>
+            <Ionicons name="leaf" size={16} color="#00e676" />
+          </View>
           <View>
             <Text style={s.headerTitle}>PlantSight</Text>
             <Text style={s.headerSub}>AI Research Platform</Text>
@@ -140,7 +143,7 @@ export default function HomeScreen({ navigation }) {
             }]} />
             {/* Inner core with scan line */}
             <Animated.View style={[s.ring3, { transform: [{ scale: corePulse }] }]}>
-              <Text style={s.heroAI}>AI</Text>
+              <Ionicons name="leaf" size={22} color="#00e676" />
               {/* Scan line sweeps inside */}
               <Animated.View style={[s.scanLine, {
                 transform: [{ translateY: scanY }],
@@ -189,7 +192,7 @@ export default function HomeScreen({ navigation }) {
             >
               <View style={[s.modeAccent, { backgroundColor: m.color }]} />
               <View style={[s.modeTag, { backgroundColor: m.color + "22", borderColor: m.color + "55" }]}>
-                <Text style={[s.modeTagText, { color: m.color }]}>{m.tag}</Text>
+                <Ionicons name={m.icon} size={20} color={m.color} />
               </View>
               <View style={s.modeBody}>
                 <Text style={[s.modeLabel, { color: active ? m.color : "#e8f5e9" }]}>{m.label}</Text>
@@ -235,11 +238,9 @@ const s = StyleSheet.create({
                   borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)",
                   backgroundColor: "rgba(8,13,8,0.95)" },
   headerLeft:   { flexDirection: "row", alignItems: "center", gap: 10 },
-  headerLogo:   { width: 32, height: 32, borderRadius: 8, backgroundColor: "rgba(0,230,118,0.15)",
-                  borderWidth: 1, borderColor: "rgba(0,230,118,0.3)",
-                  textAlign: "center", lineHeight: 32,
-                  fontSize: 11, fontWeight: "900", color: "#00e676", letterSpacing: 0.5,
-                  overflow: "hidden" },
+  headerLogoBox:{ width: 36, height: 36, borderRadius: 10, backgroundColor: "rgba(0,230,118,0.12)",
+                  borderWidth: 1, borderColor: "rgba(0,230,118,0.35)",
+                  alignItems: "center", justifyContent: "center" },
   headerTitle:  { fontSize: 19, fontWeight: "800", color: "#00e676", letterSpacing: -0.5 },
   headerSub:    { fontSize: 9, color: "rgba(232,245,233,0.35)", textTransform: "uppercase", letterSpacing: 0.12, marginTop: 1 },
   statusDot:    { width: 9, height: 9, borderRadius: 5, shadowOpacity: 0.8, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },

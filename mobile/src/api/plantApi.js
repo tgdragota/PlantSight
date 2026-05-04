@@ -1,14 +1,12 @@
 /**
  * PlantSight API Client — Mobile version (React Native / Expo)
- * Identical logic to web/src/api/plantApi.js
- * Difference: device_id uses AsyncStorage instead of localStorage
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000";
+export const API_BASE = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000";
 
 // ── Device ID ─────────────────────────────────────────────────────────────────
-async function getDeviceId() {
+export async function getDeviceId() {
   const KEY = "plantsight_device_id";
   let id = await AsyncStorage.getItem(KEY);
   if (!id) {
@@ -16,6 +14,28 @@ async function getDeviceId() {
     await AsyncStorage.setItem(KEY, id);
   }
   return id;
+}
+
+// ── Normalize API response → flat shape expected by ResultScreen ──────────────
+export function normalizeResult(data) {
+  const cls  = data.classification  || {};
+  const seg  = data.segmentation    || {};
+  const meta = data.inference_meta  || {};
+  return {
+    predicted_class : cls.disease_label  || cls.disease_class || "Unknown",
+    plant           : cls.plant          || "",
+    confidence      : cls.confidence     || 0,
+    severity        : cls.severity       || "unknown",
+    top3            : cls.top3           || [],
+    latency_ms      : meta.latency_ms    || 0,
+    classify_ms     : meta.classify_ms   || 0,
+    segment_ms      : meta.segment_ms    || 0,
+    mode            : meta.mode          || "cloud",
+    infected_area   : seg.infected_area  ?? null,
+    healthy_area    : seg.healthy_area   ?? null,
+    overlay_b64     : seg.overlay_b64    || null,
+    treatment       : data.treatment     || {},
+  };
 }
 
 // ── Main diagnose ─────────────────────────────────────────────────────────────
@@ -27,11 +47,9 @@ export async function diagnoseImage(imageFile, mode = "cloud") {
   formData.append("mode", mode);
   formData.append("device_id", deviceId);
 
-  const t0 = Date.now();
-
   const res = await fetch(`${API_BASE}/api/diagnose`, {
-    method: "POST",
-    body: formData,
+    method : "POST",
+    body   : formData,
     headers: { Accept: "application/json" },
   });
 
@@ -41,15 +59,21 @@ export async function diagnoseImage(imageFile, mode = "cloud") {
   }
 
   const data = await res.json();
-  data._client_latency_ms = Date.now() - t0;
-  return data;
+  return normalizeResult(data);
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
-export async function getHistory(limit = 20) {
+export async function getHistory(limit = 50) {
   const deviceId = await getDeviceId();
   const res = await fetch(`${API_BASE}/api/history?device_id=${deviceId}&limit=${limit}`);
   if (!res.ok) throw new Error("Could not load history");
+  return res.json();
+}
+
+// ── Research metrics ──────────────────────────────────────────────────────────
+export async function getResearch() {
+  const res = await fetch(`${API_BASE}/api/research`);
+  if (!res.ok) throw new Error("Could not load research data");
   return res.json();
 }
 
@@ -67,10 +91,8 @@ export async function checkHealth() {
   }
 }
 
-// ── URI → Blob (Expo) ─────────────────────────────────────────────────────────
+// ── URI → RN FormData object ──────────────────────────────────────────────────
 export async function uriToBlob(uri) {
-  const res = await fetch(uri);
-  const blob = await res.blob();
-  // React Native FormData needs { uri, name, type } format
+  // React Native FormData needs { uri, name, type } format — do NOT blob()
   return { uri, name: "plant.jpg", type: "image/jpeg" };
 }

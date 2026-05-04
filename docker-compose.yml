@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: plantsight-backend
+    restart: unless-stopped
+    environment:
+      - DEBUG=false
+      - ALLOWED_ORIGINS=["*"]
+    volumes:
+      # Model weights — mount from host so they're not baked into image
+      - ./backend/assets/models:/app/assets/models
+      # Persistent SQLite DB
+      - plantsight-db:/app/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    image: nginx:alpine
+    container_name: plantsight-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+
+volumes:
+  plantsight-db:
