@@ -4,6 +4,7 @@ import History from "./pages/History";
 import Dashboard from "./pages/Dashboard";
 import Benchmark from "./pages/Benchmark";
 import About from "./pages/About";
+import Research from "./pages/Research";
 import { checkHealth } from "./api/plantApi";
 import "./App.css";
 
@@ -18,7 +19,8 @@ const NAV = [
   { id: "benchmark", label: "Benchmark", icon: "⚡" },
   { id: "dashboard", label: "Dashboard", icon: "📊" },
   { id: "history",   label: "History",   icon: "📋" },
-  { id: "about",     label: "Research",  icon: "🔬" },
+  { id: "about",     label: "About",     icon: "ℹ️" },
+  { id: "research",  label: "Research",  icon: "🔬" },
 ];
 
 export default function App() {
@@ -89,6 +91,7 @@ export default function App() {
         {page === "dashboard" && <Dashboard sessionStats={sessionStats} />}
         {page === "history"   && <History />}
         {page === "about"     && <About />}
+        {page === "research"  && <Research />}
       </main>
 
       <footer className="app-footer">
