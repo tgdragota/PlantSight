@@ -6,7 +6,7 @@ from config import settings
 from database.db import init_db
 from models.classifier import classifier
 from models.segmentor import segmentor
-from routers import classify, segment, diagnose, history, confirm
+from routers import classify, segment, diagnose, history, confirm, research
 
 
 @asynccontextmanager
@@ -46,7 +46,8 @@ app.include_router(diagnose.router, prefix="/api", tags=["diagnose"])
 app.include_router(classify.router, prefix="/api", tags=["classify"])
 app.include_router(segment.router,  prefix="/api", tags=["segment"])
 app.include_router(history.router,  prefix="/api", tags=["history"])
-app.include_router(confirm.router,  prefix="/api", tags=["confirm"])
+app.include_router(confirm.router,   prefix="/api", tags=["confirm"])
+app.include_router(research.router,  prefix="/api", tags=["research"])
 
 
 @app.get("/api/health", tags=["system"])
