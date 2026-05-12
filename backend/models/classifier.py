@@ -63,8 +63,18 @@ class PlantClassifier:
             self.model = timm.create_model(
                 "efficientnet_b0", pretrained=False, num_classes=len(self.classes),
             )
-            state = torch.load(settings.CLASSIFIER_WEIGHTS, map_location=self.device, weights_only=True)
-            self.model.load_state_dict(state)
+            checkpoint = torch.load(settings.CLASSIFIER_WEIGHTS, map_location=self.device, weights_only=False)
+            # Handle both plain state_dict and full checkpoint formats
+            if isinstance(checkpoint, dict):
+                state = (
+                    checkpoint.get("model_state_dict") or
+                    checkpoint.get("state_dict") or
+                    checkpoint.get("model") or
+                    checkpoint  # assume it IS the state dict
+                )
+            else:
+                state = checkpoint
+            self.model.load_state_dict(state, strict=False)
             self.model.to(self.device).eval()
             print(f"[Classifier] Loaded {len(self.classes)} classes on {self.device}")
 
