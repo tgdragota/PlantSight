@@ -230,12 +230,12 @@ export default function Research() {
           {/* ── LIVE ── */}
           {tab === "Live" && (
             <>
-              <p style={sectionTitle}>Live Benchmark (scans din această sesiune)</p>
+              <p style={sectionTitle}>Live Benchmark (from real scans)</p>
               {liveEntries.length === 0 ? (
                 <div style={{ ...card, textAlign: "center", padding: 48 }}>
                   <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
-                  <p style={{ color: "rgba(232,245,233,0.4)", fontSize: 13 }}>Nu există date live încă.</p>
-                  <p style={{ color: "rgba(232,245,233,0.25)", fontSize: 12 }}>Fă câteva scanări din aplicația mobilă pentru a vedea statistici în timp real.</p>
+                  <p style={{ color: "rgba(232,245,233,0.4)", fontSize: 13 }}>No live data yet.</p>
+                  <p style={{ color: "rgba(232,245,233,0.25)", fontSize: 12 }}>Run a few scans from the mobile app to see real-time benchmark statistics.</p>
                 </div>
               ) : (
                 <>
