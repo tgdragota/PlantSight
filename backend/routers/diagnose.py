@@ -3,6 +3,7 @@ POST /api/diagnose
 Main endpoint — classify + segment + treatment in a single call.
 Used by Cloud and Hybrid modes.
 """
+import asyncio
 import json
 import time
 
@@ -14,6 +15,9 @@ from models.segmentor import segmentor
 from database.db import save_scan
 
 router = APIRouter()
+
+# Allow max 2 concurrent heavy inferences to avoid OOM on t3.medium
+_inference_semaphore = asyncio.Semaphore(2)
 
 # Load treatments lookup once at import time
 with open(settings.TREATMENTS_JSON) as f:
@@ -59,19 +63,20 @@ async def diagnose(
 
     t_total = time.time()
 
-    # ── 1. Classify ──────────────────────────────────────────────
-    cls = classifier.predict(img_bytes)
-    classify_ms = cls.pop("latency_ms", 0)
+    async with _inference_semaphore:
+        # ── 1. Classify ──────────────────────────────────────────
+        cls = classifier.predict(img_bytes)
+        classify_ms = cls.pop("latency_ms", 0)
 
-    # ── 2. Segment (skip for healthy plants) ────────────────────
-    seg = None
-    segment_ms = 0
-    if cls["severity"] != "healthy":
-        try:
-            seg = segmentor.segment(img_bytes)
-            segment_ms = seg.pop("latency_ms", 0)
-        except Exception as e:
-            print(f"[WARN] Segmentation failed: {e}")
+        # ── 2. Segment (skip for healthy plants) ─────────────────
+        seg = None
+        segment_ms = 0
+        if cls["severity"] != "healthy":
+            try:
+                seg = segmentor.segment(img_bytes)
+                segment_ms = seg.pop("latency_ms", 0)
+            except Exception as e:
+                print(f"[WARN] Segmentation failed: {e}")
 
     # ── 3. Treatment lookup ──────────────────────────────────────
     treatment = _get_treatment(cls["disease_class"])
