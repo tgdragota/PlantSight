@@ -66,15 +66,29 @@ const CLASSES = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Build structured result from raw softmax scores
+// Softmax — converts raw INT8 logits to proper 0-1 probabilities
+// ─────────────────────────────────────────────────────────────────────────────
+function softmax(logits) {
+  const max = Math.max(...logits); // subtract max for numerical stability
+  const exps = logits.map((v) => Math.exp(v - max));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return exps.map((e) => e / sum);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build structured result from raw model scores (logits or probs)
 // ─────────────────────────────────────────────────────────────────────────────
 function buildResult(scores, latency_ms, isMock = false) {
-  const indexed = scores.map((s, i) => ({ s, i }));
+  // Always apply softmax — if scores are already probabilities (sum=1) the
+  // result is identical; if they are raw logits (INT8 dequantized) this
+  // normalises them to [0,1] and prevents >100% display bugs.
+  const probs = softmax(scores);
+  const indexed = probs.map((s, i) => ({ s, i }));
   indexed.sort((a, b) => b.s - a.s);
   const top3 = indexed.slice(0, 3);
 
   const topIdx    = top3[0].i;
-  const topConf   = top3[0].s;
+  const topConf   = top3[0].s; // now guaranteed in [0, 1] after softmax
   const top       = CLASSES[topIdx] || CLASSES[0];
   const isHealthy = top.label.toLowerCase().includes("healthy");
 
@@ -195,12 +209,16 @@ async function imageToFloat32(imageUri) {
   // Decode JPEG → RGBA pixel buffer
   const { data: rgba } = _jpeg.decode(jpegBytes, { useTArray: true });
 
-  // RGBA → RGB Float32 normalised to [0, 1]
+  // RGBA → RGB Float32 with ImageNet normalization
+  // μ = [0.485, 0.456, 0.406]  σ = [0.229, 0.224, 0.225]
+  // (must match training preprocessing exactly)
+  const MEAN = [0.485, 0.456, 0.406];
+  const STD  = [0.229, 0.224, 0.225];
   const float32 = new Float32Array(224 * 224 * 3);
   for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
-    float32[j]     = rgba[i]     / 255.0;   // R
-    float32[j + 1] = rgba[i + 1] / 255.0;   // G
-    float32[j + 2] = rgba[i + 2] / 255.0;   // B
+    float32[j]     = (rgba[i]     / 255.0 - MEAN[0]) / STD[0];   // R
+    float32[j + 1] = (rgba[i + 1] / 255.0 - MEAN[1]) / STD[1];   // G
+    float32[j + 2] = (rgba[i + 2] / 255.0 - MEAN[2]) / STD[2];   // B
   }
   return float32;
 }

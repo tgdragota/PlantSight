@@ -47,7 +47,7 @@ export default function CameraScreen({ route, navigation }) {
     if (!result.canceled) setImageUri(result.assets[0].uri);
   };
 
-  const CONFIDENCE_THRESHOLD = 0.70; // below this → not a plant leaf
+  const CONFIDENCE_THRESHOLD = 0.0; // disabled — INT8 model gives low raw confidence, always proceed
 
   const diagnose = async () => {
     if (!imageUri) return;

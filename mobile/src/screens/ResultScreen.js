@@ -1,7 +1,10 @@
 import {
-  View, Text, Image, TouchableOpacity,
-  ScrollView, SafeAreaView, StatusBar, StyleSheet, Share,
+  View, Text, Image, TouchableOpacity, Modal, TextInput, Alert,
+  ScrollView, SafeAreaView, StatusBar, StyleSheet, Share, ActivityIndicator,
 } from "react-native";
+import { useState } from "react";
+import { API_BASE } from "../api/plantApi";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const MODE_CFG = {
   edge:   { color: "#00e676", label: "Edge AI",  tag: "E" },
@@ -35,6 +38,16 @@ function confNum(v) {
   return v > 1 ? v / 100 : v;
 }
 
+async function getDeviceId() {
+  const KEY = "plantsight_device_id";
+  let id = await AsyncStorage.getItem(KEY);
+  if (!id) {
+    id = `dev-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    await AsyncStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
 export default function ResultScreen({ route, navigation }) {
   const { result = {}, imageUri, mode } = route?.params || {};
   const cfg = MODE_CFG[mode] || MODE_CFG.cloud;
@@ -61,6 +74,66 @@ export default function ResultScreen({ route, navigation }) {
   const hasSegmentation = infected_area != null;
   const hasTreatment    = treatment && Object.keys(treatment).length > 0;
 
+  // ── Confirm Diagnosis state ──────────────────────────────────────
+  const [confirmModal, setConfirmModal] = useState(false);
+  const [isWrong,      setIsWrong]      = useState(false);
+  const [correction,   setCorrection]   = useState("");
+  const [confirming,   setConfirming]   = useState(false);
+  const [confirmed,    setConfirmed]    = useState(false); // already submitted
+
+  const openConfirm = () => {
+    setIsWrong(false);
+    setCorrection("");
+    setConfirmModal(true);
+  };
+
+  const submitConfirm = async (wasCorrect) => {
+    setConfirming(true);
+    try {
+      const deviceId = await getDeviceId();
+      const confirmedLabel = wasCorrect ? predicted_class : correction.trim();
+
+      if (!wasCorrect && !confirmedLabel) {
+        Alert.alert("Please enter the correct diagnosis first.");
+        setConfirming(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("image", {
+        uri:  imageUri,
+        name: "plant.jpg",
+        type: "image/jpeg",
+      });
+      formData.append("confirmed_label", confirmedLabel);
+      formData.append("original_label",  predicted_class);
+      formData.append("device_id",       deviceId);
+      formData.append("confidence",      String(confNum(confidence)));
+      formData.append("mode",            mode || "cloud");
+
+      const res = await fetch(`${API_BASE}/api/confirm`, {
+        method:  "POST",
+        body:    formData,
+        headers: { Accept: "application/json" },
+      });
+
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+
+      setConfirmed(true);
+      setConfirmModal(false);
+      Alert.alert(
+        "Thank you!",
+        wasCorrect
+          ? "Diagnosis confirmed. This sample will help improve the model."
+          : `Correction saved: "${confirmedLabel.replace(/_/g, " ")}". Thank you for the feedback!`
+      );
+    } catch (e) {
+      Alert.alert("Error", `Could not save: ${e.message}`);
+    } finally {
+      setConfirming(false);
+    }
+  };
+
   const onShare = async () => {
     const disease = predicted_class.replace(/_/g, " ");
     const lines   = [
@@ -72,7 +145,6 @@ export default function ResultScreen({ route, navigation }) {
       `Mode      : ${cfg.label}${mode === "edge" && !_mock ? " (TFLite on-device)" : ""}`,
       `Latency   : ${Math.round(latency_ms)} ms`,
     ];
-
     if (top3.length > 1) {
       lines.push(`──────────────────────────`);
       lines.push(`Top predictions:`);
@@ -81,28 +153,16 @@ export default function ResultScreen({ route, navigation }) {
         lines.push(`  ${i + 1}. ${lbl} — ${fmtConf(t.confidence ?? t.prob)}`);
       });
     }
-
-    if (treatment?.cause) {
-      lines.push(`──────────────────────────`);
-      lines.push(`Cause      : ${treatment.cause}`);
-    }
-    if (treatment?.immediate) lines.push(`Immediate  : ${treatment.immediate}`);
-    if (treatment?.chemical)  lines.push(`Chemical   : ${treatment.chemical}`);
-    if (treatment?.organic)   lines.push(`Organic    : ${treatment.organic}`);
-    if (treatment?.prevention)lines.push(`Prevention : ${treatment.prevention}`);
-
+    if (treatment?.cause)      { lines.push(`──────────────────────────`); lines.push(`Cause      : ${treatment.cause}`); }
+    if (treatment?.immediate)  lines.push(`Immediate  : ${treatment.immediate}`);
+    if (treatment?.chemical)   lines.push(`Chemical   : ${treatment.chemical}`);
+    if (treatment?.organic)    lines.push(`Organic    : ${treatment.organic}`);
+    if (treatment?.prevention) lines.push(`Prevention : ${treatment.prevention}`);
     lines.push(`──────────────────────────`);
     lines.push(`Shared from PlantSight (Master's Thesis)`);
-
     const sharePayload = { message: lines.join("\n") };
-    // iOS: attach image to share sheet
     if (imageUri) sharePayload.url = imageUri;
-
-    try {
-      await Share.share(sharePayload);
-    } catch (e) {
-      console.warn("[Share] failed:", e.message);
-    }
+    try { await Share.share(sharePayload); } catch (e) { console.warn("[Share]", e.message); }
   };
 
   return (
@@ -132,8 +192,6 @@ export default function ResultScreen({ route, navigation }) {
               </View>
             )
           }
-
-          {/* Top-right badge — no emoji, uses text tag */}
           {hasSegmentation && (
             <View style={s.infectedBadge}>
               <View style={s.infectedTag}>
@@ -144,8 +202,6 @@ export default function ResultScreen({ route, navigation }) {
               </Text>
             </View>
           )}
-
-          {/* Severity banner */}
           <View style={[s.severityBanner, { backgroundColor: sevCfg.color }]}>
             <Text style={s.severityBannerText}>{sevCfg.label}</Text>
           </View>
@@ -164,7 +220,6 @@ export default function ResultScreen({ route, navigation }) {
             <View style={[s.confFill, { width: `${confRatio * 100}%`, backgroundColor: sevCfg.color }]} />
           </View>
 
-          {/* Top-3 chips */}
           {top3.length > 0 && (
             <View style={s.chipRow}>
               {top3.map((item, i) => (
@@ -172,7 +227,7 @@ export default function ResultScreen({ route, navigation }) {
                   key={i}
                   style={[s.chip,
                     i === 0
-                      ? { backgroundColor: sevCfg.bg,              borderColor: sevCfg.color + "77" }
+                      ? { backgroundColor: sevCfg.bg,               borderColor: sevCfg.color + "77" }
                       : { backgroundColor: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.10)" },
                   ]}
                 >
@@ -184,7 +239,6 @@ export default function ResultScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* Mode / latency meta row — all text, no emoji */}
           <View style={s.divider} />
           <View style={s.metaRow}>
             <View style={[s.metaTag, { backgroundColor: cfg.color + "18", borderColor: cfg.color + "44" }]}>
@@ -220,24 +274,18 @@ export default function ResultScreen({ route, navigation }) {
         {hasSegmentation && (
           <View style={s.card}>
             <View style={s.sectionHeader}>
-              {/* Text badge instead of emoji */}
               <View style={[s.sectionBadge, { backgroundColor: "#ab47bc20", borderColor: "#ab47bc44" }]}>
                 <Text style={[s.sectionBadgeText, { color: "#ab47bc" }]}>SEG</Text>
               </View>
               <Text style={s.sectionTitle}>Segmentation</Text>
             </View>
-
             <View style={s.segRow}>
               <View>
-                <Text style={[s.segBig, { color: sevCfg.color }]}>
-                  {fmtConf((infected_area ?? 0) * 100)}
-                </Text>
+                <Text style={[s.segBig, { color: sevCfg.color }]}>{fmtConf((infected_area ?? 0) * 100)}</Text>
                 <Text style={s.segSmall}>INFECTED AREA</Text>
               </View>
               <View>
-                <Text style={[s.segBig, { color: "#00e676" }]}>
-                  {fmtConf((healthy_area ?? 0) * 100)}
-                </Text>
+                <Text style={[s.segBig, { color: "#00e676" }]}>{fmtConf((healthy_area ?? 0) * 100)}</Text>
                 <Text style={s.segSmall}>HEALTHY AREA</Text>
               </View>
               <View style={{ marginLeft: "auto", alignItems: "flex-end" }}>
@@ -245,7 +293,6 @@ export default function ResultScreen({ route, navigation }) {
                 <Text style={[s.segModelVal, { color: "#ab47bc" }]}>SAM</Text>
               </View>
             </View>
-
             <View style={s.segBar}>
               <View style={[s.segBarFill, { flex: infected_area ?? 0, backgroundColor: sevCfg.color }]} />
               <View style={[s.segBarFill, { flex: healthy_area  ?? 0, backgroundColor: "#00e676"    }]} />
@@ -260,7 +307,6 @@ export default function ResultScreen({ route, navigation }) {
         {/* ── Treatment card ─────────────────── */}
         <View style={s.card}>
           <View style={s.sectionHeader}>
-            {/* Text badge instead of emoji */}
             <View style={[s.sectionBadge, { backgroundColor: "#42a5f520", borderColor: "#42a5f544" }]}>
               <Text style={[s.sectionBadgeText, { color: "#42a5f5" }]}>RX</Text>
             </View>
@@ -269,7 +315,6 @@ export default function ResultScreen({ route, navigation }) {
               <Text style={[s.severityChipText, { color: sevCfg.color }]}>{sevCfg.label}</Text>
             </View>
           </View>
-
           {hasTreatment ? (
             <>
               {treatment.cause      && <TreatRow k="Cause"      v={treatment.cause}      />}
@@ -281,12 +326,29 @@ export default function ResultScreen({ route, navigation }) {
           ) : (
             <View style={s.noTreat}>
               <Text style={s.noTreatTitle}>No treatment data available</Text>
-              <Text style={s.noTreatSub}>
-                Make sure the backend is running for Cloud / Hybrid modes
-              </Text>
+              <Text style={s.noTreatSub}>Make sure the backend is running for Cloud / Hybrid modes</Text>
             </View>
           )}
         </View>
+
+        {/* ── Confirm Diagnosis button ────────── */}
+        {!confirmed ? (
+          <TouchableOpacity style={s.confirmBtn} onPress={openConfirm}>
+            <View style={s.confirmBtnInner}>
+              <View style={s.confirmIcon}>
+                <Text style={s.confirmIconText}>DB</Text>
+              </View>
+              <View style={s.confirmBtnText}>
+                <Text style={s.confirmBtnTitle}>Confirm Diagnosis</Text>
+                <Text style={s.confirmBtnSub}>Help improve the AI model</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <View style={s.confirmedBadge}>
+            <Text style={s.confirmedText}>Saved to training dataset</Text>
+          </View>
+        )}
 
         {/* ── New scan button ────────────────── */}
         <TouchableOpacity style={s.newScanBtn} onPress={() => navigation.goBack()}>
@@ -294,6 +356,79 @@ export default function ResultScreen({ route, navigation }) {
         </TouchableOpacity>
 
       </ScrollView>
+
+      {/* ── Confirm Modal ──────────────────────── */}
+      <Modal visible={confirmModal} transparent animationType="slide" onRequestClose={() => setConfirmModal(false)}>
+        <View style={s.modalOverlay}>
+          <View style={s.modalBox}>
+
+            <Text style={s.modalTitle}>Confirm Diagnosis</Text>
+            <Text style={s.modalSub}>Your feedback helps train a better model</Text>
+
+            <View style={s.modalDiseaseBox}>
+              <Text style={s.modalDiseaseLabel}>Model predicted:</Text>
+              <Text style={s.modalDiseaseName}>{predicted_class.replace(/_/g, " ")}</Text>
+              <Text style={[s.modalConf, { color: sevCfg.color }]}>{fmtConf(confidence)} confidence</Text>
+            </View>
+
+            {!isWrong ? (
+              <>
+                <Text style={s.modalQuestion}>Is this diagnosis correct?</Text>
+                <View style={s.modalBtnRow}>
+                  <TouchableOpacity
+                    style={[s.modalBtn, s.modalBtnYes, s.modalBtnFlex]}
+                    onPress={() => submitConfirm(true)}
+                    disabled={confirming}
+                  >
+                    {confirming
+                      ? <ActivityIndicator color="#080d08" size="small" />
+                      : <Text style={s.modalBtnYesText}>Yes, correct</Text>
+                    }
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.modalBtn, s.modalBtnNo, s.modalBtnFlex]}
+                    onPress={() => setIsWrong(true)}
+                    disabled={confirming}
+                  >
+                    <Text style={s.modalBtnNoText}>No, fix it</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={s.modalQuestion}>What is the correct diagnosis?</Text>
+                <TextInput
+                  style={s.modalInput}
+                  value={correction}
+                  onChangeText={setCorrection}
+                  placeholder="e.g. Tomato_Early_blight"
+                  placeholderTextColor="rgba(232,245,233,0.25)"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={[s.modalBtn, s.modalBtnYes, { marginTop: 12 }]}
+                  onPress={() => submitConfirm(false)}
+                  disabled={confirming || !correction.trim()}
+                >
+                  {confirming
+                    ? <ActivityIndicator color="#080d08" size="small" />
+                    : <Text style={s.modalBtnYesText}>Save correction</Text>
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity style={s.modalBtnCancel} onPress={() => setIsWrong(false)}>
+                  <Text style={s.modalBtnCancelText}>Back</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            <TouchableOpacity style={s.modalClose} onPress={() => setConfirmModal(false)}>
+              <Text style={s.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -328,19 +463,13 @@ const s = StyleSheet.create({
   imagePreview:      { width: "100%", height: 260 },
   imagePlaceholder:  { height: 180, alignItems: "center", justifyContent: "center" },
   imagePlaceholderText: { fontSize: 28, fontWeight: "900" },
-
-  infectedBadge:     { position: "absolute", top: 10, right: 10,
-                       flexDirection: "row", alignItems: "center", gap: 6,
-                       backgroundColor: "rgba(8,13,8,0.82)", paddingHorizontal: 10,
-                       paddingVertical: 5, borderRadius: 20,
+  infectedBadge:     { position: "absolute", top: 10, right: 10, flexDirection: "row", alignItems: "center", gap: 6,
+                       backgroundColor: "rgba(8,13,8,0.82)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
                        borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" },
-  infectedTag:       { width: 24, height: 24, borderRadius: 5,
-                       backgroundColor: "rgba(255,112,67,0.22)", borderWidth: 1,
-                       borderColor: "rgba(255,112,67,0.45)",
-                       alignItems: "center", justifyContent: "center" },
+  infectedTag:       { width: 24, height: 24, borderRadius: 5, backgroundColor: "rgba(255,112,67,0.22)", borderWidth: 1,
+                       borderColor: "rgba(255,112,67,0.45)", alignItems: "center", justifyContent: "center" },
   infectedTagText:   { color: "#ff7043", fontSize: 8, fontWeight: "900", letterSpacing: 0.3 },
   infectedBadgeLabel:{ color: "#e8f5e9", fontSize: 12, fontWeight: "600" },
-
   severityBanner:    { paddingVertical: 10, alignItems: "center" },
   severityBannerText:{ color: "#080d08", fontWeight: "900", fontSize: 14, letterSpacing: 3 },
 
@@ -353,37 +482,30 @@ const s = StyleSheet.create({
   plantLabel:        { fontSize: 10, color: "rgba(232,245,233,0.35)", fontWeight: "700",
                        letterSpacing: 0.14, textTransform: "uppercase", marginBottom: 4 },
   diseaseName:       { fontSize: 21, fontWeight: "800", color: "#e8f5e9", marginBottom: 16, lineHeight: 27 },
-
   confLabelRow:      { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
   confLabelText:     { fontSize: 12, color: "rgba(232,245,233,0.4)", fontWeight: "600" },
   confValueText:     { fontSize: 13, fontWeight: "800" },
-  confTrack:         { height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.08)",
-                       overflow: "hidden", marginBottom: 14 },
+  confTrack:         { height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 14 },
   confFill:          { height: "100%", borderRadius: 3 },
-
   chipRow:           { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip:              { borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
   chipText:          { fontSize: 11, fontWeight: "600" },
-
   divider:           { height: 1, backgroundColor: "rgba(255,255,255,0.07)", marginVertical: 14 },
   metaRow:           { flexDirection: "row", alignItems: "center", gap: 8 },
   metaTag:           { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1 },
   metaTagText:       { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
-  modePill:          { flexDirection: "row", alignItems: "center", gap: 5,
-                       paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
+  modePill:          { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
   modePillDot:       { width: 16, height: 16, borderRadius: 4, alignItems: "center", justifyContent: "center" },
   modePillDotText:   { fontSize: 8, fontWeight: "900" },
   modePillLabel:     { fontSize: 11, fontWeight: "700" },
   latencyText:       { marginLeft: "auto", fontSize: 12, color: "rgba(232,245,233,0.35)", fontWeight: "600" },
-  inferBadge:        { flexDirection: "row", alignItems: "center", gap: 4,
-                       paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, marginLeft: 6 },
+  inferBadge:        { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, marginLeft: 6 },
   inferDot:          { width: 5, height: 5, borderRadius: 3 },
   inferText:         { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
 
-  /* section header shared */
+  /* section header */
   sectionHeader:     { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },
-  sectionBadge:      { width: 34, height: 34, borderRadius: 8, borderWidth: 1,
-                       alignItems: "center", justifyContent: "center" },
+  sectionBadge:      { width: 34, height: 34, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   sectionBadgeText:  { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
   sectionTitle:      { fontSize: 15, fontWeight: "800", color: "#e8f5e9", flex: 1 },
 
@@ -401,18 +523,54 @@ const s = StyleSheet.create({
   severityChip:      { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1.5 },
   severityChipText:  { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
   treatRow:          { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)" },
-  treatKey:          { fontSize: 10, color: "rgba(232,245,233,0.35)", fontWeight: "700",
-                       letterSpacing: 0.1, textTransform: "uppercase", marginBottom: 4 },
+  treatKey:          { fontSize: 10, color: "rgba(232,245,233,0.35)", fontWeight: "700", letterSpacing: 0.1, textTransform: "uppercase", marginBottom: 4 },
   treatVal:          { fontSize: 13, color: "rgba(232,245,233,0.8)", lineHeight: 19 },
   noTreat:           { paddingVertical: 16, alignItems: "center" },
-  noTreatTitle:      { color: "rgba(232,245,233,0.4)", fontWeight: "700", fontSize: 13,
-                       textAlign: "center", marginBottom: 6 },
-  noTreatSub:        { color: "rgba(232,245,233,0.22)", fontSize: 11, textAlign: "center",
-                       lineHeight: 17, paddingHorizontal: 16 },
+  noTreatTitle:      { color: "rgba(232,245,233,0.4)", fontWeight: "700", fontSize: 13, textAlign: "center", marginBottom: 6 },
+  noTreatSub:        { color: "rgba(232,245,233,0.22)", fontSize: 11, textAlign: "center", lineHeight: 17, paddingHorizontal: 16 },
+
+  /* confirm button */
+  confirmBtn:        { backgroundColor: "rgba(255,171,64,0.08)", borderWidth: 1.5, borderColor: "rgba(255,171,64,0.35)",
+                       borderRadius: 14, padding: 16, marginBottom: 10 },
+  confirmBtnInner:   { flexDirection: "row", alignItems: "center", gap: 14 },
+  confirmIcon:       { width: 40, height: 40, borderRadius: 10, backgroundColor: "rgba(255,171,64,0.15)",
+                       borderWidth: 1, borderColor: "rgba(255,171,64,0.35)", alignItems: "center", justifyContent: "center" },
+  confirmIconText:   { color: "#ffab40", fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
+  confirmBtnText:    { flex: 1 },
+  confirmBtnTitle:   { color: "#ffab40", fontWeight: "800", fontSize: 15, marginBottom: 2 },
+  confirmBtnSub:     { color: "rgba(255,171,64,0.55)", fontSize: 11 },
+  confirmedBadge:    { backgroundColor: "rgba(0,230,118,0.08)", borderWidth: 1, borderColor: "rgba(0,230,118,0.25)",
+                       borderRadius: 14, padding: 14, marginBottom: 10, alignItems: "center" },
+  confirmedText:     { color: "#00e676", fontWeight: "700", fontSize: 13 },
 
   /* new scan */
-  newScanBtn:        { backgroundColor: "rgba(0,230,118,0.10)", borderWidth: 1.5,
-                       borderColor: "rgba(0,230,118,0.30)", borderRadius: 14,
-                       padding: 18, alignItems: "center", marginTop: 8 },
+  newScanBtn:        { backgroundColor: "rgba(0,230,118,0.10)", borderWidth: 1.5, borderColor: "rgba(0,230,118,0.30)",
+                       borderRadius: 14, padding: 18, alignItems: "center", marginTop: 8 },
   newScanText:       { color: "#00e676", fontSize: 16, fontWeight: "800" },
+
+  /* modal */
+  modalOverlay:      { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" },
+  modalBox:          { backgroundColor: "#0f1a0f", borderTopLeftRadius: 24, borderTopRightRadius: 24,
+                       padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.10)" },
+  modalTitle:        { fontSize: 20, fontWeight: "900", color: "#e8f5e9", marginBottom: 4 },
+  modalSub:          { fontSize: 12, color: "rgba(232,245,233,0.4)", marginBottom: 20 },
+  modalDiseaseBox:   { backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 14, marginBottom: 20,
+                       borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  modalDiseaseLabel: { fontSize: 10, color: "rgba(232,245,233,0.35)", fontWeight: "700", textTransform: "uppercase", marginBottom: 4 },
+  modalDiseaseName:  { fontSize: 18, fontWeight: "800", color: "#e8f5e9", marginBottom: 4 },
+  modalConf:         { fontSize: 13, fontWeight: "700" },
+  modalQuestion:     { fontSize: 15, color: "#e8f5e9", fontWeight: "700", marginBottom: 16 },
+  modalBtnRow:       { flexDirection: "row", gap: 12, marginBottom: 12 },
+  modalBtnFlex:      { flex: 1 },
+  modalBtn:          { paddingVertical: 14, borderRadius: 12, alignItems: "center", borderWidth: 1 },
+  modalBtnYes:       { backgroundColor: "#00e676", borderColor: "#00e676" },
+  modalBtnYesText:   { color: "#080d08", fontWeight: "900", fontSize: 15 },
+  modalBtnNo:        { backgroundColor: "rgba(255,82,82,0.12)", borderColor: "rgba(255,82,82,0.40)" },
+  modalBtnNoText:    { color: "#ff5252", fontWeight: "800", fontSize: 15 },
+  modalInput:        { backgroundColor: "rgba(255,255,255,0.07)", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)",
+                       borderRadius: 10, padding: 14, color: "#e8f5e9", fontSize: 15 },
+  modalBtnCancel:    { marginTop: 10, alignItems: "center", padding: 10 },
+  modalBtnCancelText:{ color: "rgba(232,245,233,0.4)", fontSize: 13 },
+  modalClose:        { marginTop: 16, alignItems: "center", padding: 10 },
+  modalCloseText:    { color: "rgba(232,245,233,0.3)", fontSize: 13 },
 });
