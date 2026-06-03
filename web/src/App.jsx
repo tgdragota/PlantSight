@@ -5,14 +5,24 @@ import Dashboard from "./pages/Dashboard";
 import Benchmark from "./pages/Benchmark";
 import About from "./pages/About";
 import Research from "./pages/Research";
-import { checkHealth } from "./api/plantApi";
+import { checkHealth, clearHistory } from "./api/plantApi";
 import "./App.css";
+
+const STATS_KEY = "plantsight_dashboard_stats";
 
 const INITIAL_STATS = {
   edge:   { count: 0, totalLatency: 0, totalConfidence: 0 },
   hybrid: { count: 0, totalLatency: 0, totalConfidence: 0 },
   cloud:  { count: 0, totalLatency: 0, totalConfidence: 0 },
 };
+
+function loadStats() {
+  try {
+    const saved = localStorage.getItem(STATS_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return INITIAL_STATS;
+}
 
 const NAV = [
   { id: "home",      label: "Diagnose",  icon: "🔍" },
@@ -26,7 +36,7 @@ const NAV = [
 export default function App() {
   const [page, setPage] = useState("home");
   const [serverUp, setServerUp] = useState(null);
-  const [sessionStats, setSessionStats] = useState(INITIAL_STATS);
+  const [sessionStats, setSessionStats] = useState(loadStats);
 
   useEffect(() => {
     checkHealth().then(setServerUp);
@@ -35,14 +45,24 @@ export default function App() {
   }, []);
 
   const addScanResult = (mode, latency_ms, confidence) => {
-    setSessionStats((prev) => ({
-      ...prev,
-      [mode]: {
-        count: prev[mode].count + 1,
-        totalLatency: prev[mode].totalLatency + latency_ms,
-        totalConfidence: prev[mode].totalConfidence + confidence,
-      },
-    }));
+    setSessionStats((prev) => {
+      const next = {
+        ...prev,
+        [mode]: {
+          count: prev[mode].count + 1,
+          totalLatency: prev[mode].totalLatency + latency_ms,
+          totalConfidence: prev[mode].totalConfidence + confidence,
+        },
+      };
+      try { localStorage.setItem(STATS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const clearAll = async () => {
+    try { await clearHistory(); } catch { /* history clear failed, continue */ }
+    try { localStorage.removeItem(STATS_KEY); } catch { /* ignore */ }
+    setSessionStats(INITIAL_STATS);
   };
 
   const totalScans = Object.values(sessionStats).reduce((s, m) => s + m.count, 0);
@@ -88,7 +108,7 @@ export default function App() {
       <main className="app-main">
         {page === "home"      && <Home      serverUp={serverUp} sessionStats={sessionStats} onScanResult={addScanResult} />}
         {page === "benchmark" && <Benchmark serverUp={serverUp} onScanResult={addScanResult} />}
-        {page === "dashboard" && <Dashboard sessionStats={sessionStats} />}
+        {page === "dashboard" && <Dashboard sessionStats={sessionStats} onClear={clearAll} />}
         {page === "history"   && <History />}
         {page === "about"     && <About />}
         {page === "research"  && <Research />}

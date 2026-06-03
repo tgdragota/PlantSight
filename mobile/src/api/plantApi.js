@@ -3,7 +3,28 @@
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const API_BASE = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000";
+const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL_KEY = "plantsight_api_url";
+
+// Citeste URL-ul din AsyncStorage (setat din Settings screen)
+// Daca nu exista, foloseste URL-ul din .env
+export async function getApiBase() {
+  try {
+    const stored = await AsyncStorage.getItem(API_URL_KEY);
+    return (stored && stored.trim()) ? stored.trim() : DEFAULT_API_URL;
+  } catch {
+    return DEFAULT_API_URL;
+  }
+}
+
+// Salveaza un URL nou (apelat din Settings screen)
+export async function setApiBase(url) {
+  const clean = url.trim().replace(/\/$/, ""); // sterge slash final
+  await AsyncStorage.setItem(API_URL_KEY, clean);
+}
+
+// Pastreaza export-ul vechi pentru compatibilitate (valoare statica)
+export const API_BASE = DEFAULT_API_URL;
 
 // ── Device ID ─────────────────────────────────────────────────────────────────
 export async function getDeviceId() {
@@ -41,13 +62,14 @@ export function normalizeResult(data) {
 // ── Main diagnose ─────────────────────────────────────────────────────────────
 export async function diagnoseImage(imageFile, mode = "cloud") {
   const deviceId = await getDeviceId();
+  const base = await getApiBase();
 
   const formData = new FormData();
   formData.append("image", imageFile);
   formData.append("mode", mode);
   formData.append("device_id", deviceId);
 
-  const res = await fetch(`${API_BASE}/api/diagnose`, {
+  const res = await fetch(`${base}/api/diagnose`, {
     method : "POST",
     body   : formData,
     headers: { Accept: "application/json" },
@@ -65,14 +87,16 @@ export async function diagnoseImage(imageFile, mode = "cloud") {
 // ── History ───────────────────────────────────────────────────────────────────
 export async function getHistory(limit = 50) {
   const deviceId = await getDeviceId();
-  const res = await fetch(`${API_BASE}/api/history?device_id=${deviceId}&limit=${limit}`);
+  const base = await getApiBase();
+  const res = await fetch(`${base}/api/history?device_id=${deviceId}&limit=${limit}`);
   if (!res.ok) throw new Error("Could not load history");
   return res.json();
 }
 
 // ── Research metrics ──────────────────────────────────────────────────────────
 export async function getResearch() {
-  const res = await fetch(`${API_BASE}/api/research`);
+  const base = await getApiBase();
+  const res = await fetch(`${base}/api/research`);
   if (!res.ok) throw new Error("Could not load research data");
   return res.json();
 }
@@ -80,9 +104,10 @@ export async function getResearch() {
 // ── Health check ──────────────────────────────────────────────────────────────
 export async function checkHealth() {
   try {
+    const base = await getApiBase();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
-    const res = await fetch(`${API_BASE}/api/health`, { signal: controller.signal });
+    const res = await fetch(`${base}/api/health`, { signal: controller.signal });
     clearTimeout(timeout);
     const data = await res.json();
     return data.status === "ok";

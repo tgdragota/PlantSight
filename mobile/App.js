@@ -11,6 +11,7 @@ import CameraScreen   from "./src/screens/CameraScreen";
 import ResultScreen   from "./src/screens/ResultScreen";
 import HistoryScreen  from "./src/screens/HistoryScreen";
 import ResearchScreen from "./src/screens/ResearchScreen";
+import SettingsScreen from "./src/screens/SettingsScreen";
 
 const Tab   = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -70,6 +71,14 @@ export default function App() {
                                     <View style={{ width:30, height:30, borderRadius:8, alignItems:"center", justifyContent:"center",
                                         backgroundColor: focused ? "rgba(0,230,118,0.12)" : "transparent" }}>
                                         <Ionicons name={focused ? "flask" : "flask-outline"} size={20} color={color} />
+                                    </View>
+                                )}}
+                />
+                <Tab.Screen name="Settings" component={SettingsScreen}
+                            options={{ tabBarIcon: ({ color, focused }) => (
+                                    <View style={{ width:30, height:30, borderRadius:8, alignItems:"center", justifyContent:"center",
+                                        backgroundColor: focused ? "rgba(0,230,118,0.12)" : "transparent" }}>
+                                        <Ionicons name={focused ? "settings" : "settings-outline"} size={20} color={color} />
                                     </View>
                                 )}}
                 />

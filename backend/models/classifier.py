@@ -60,9 +60,11 @@ class PlantClassifier:
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ])
 
-            self.model = timm.create_model(
-                "efficientnet_b0", pretrained=False, num_classes=len(self.classes),
-            )
+            from torchvision.models import efficientnet_b0
+            self.model = efficientnet_b0(weights=None)
+            # Replace classifier head for correct number of classes
+            import torch.nn as nn
+            self.model.classifier[1] = nn.Linear(self.model.classifier[1].in_features, len(self.classes))
             checkpoint = torch.load(settings.CLASSIFIER_WEIGHTS, map_location=self.device, weights_only=False)
             # Handle both plain state_dict and full checkpoint formats
             if isinstance(checkpoint, dict):

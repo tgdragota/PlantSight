@@ -48,7 +48,7 @@ function MetricTile({ icon, label, value, sub }) {
   );
 }
 
-export default function Dashboard({ sessionStats }) {
+export default function Dashboard({ sessionStats, onClear }) {
   const modes = ["edge", "hybrid", "cloud"];
 
   const totalScans     = modes.reduce((s, m) => s + sessionStats[m].count, 0);
@@ -81,8 +81,24 @@ export default function Dashboard({ sessionStats }) {
   return (
     <div className="dashboard-page">
       <div className="page-header">
-        <h2 className="page-title">📊 Inference Dashboard</h2>
-        <p className="page-sub">Real-time comparison of Edge · Hybrid · Cloud performance for this session</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h2 className="page-title">📊 Inference Dashboard</h2>
+            <p className="page-sub">Performance data persists across sessions · Edge · Hybrid · Cloud</p>
+          </div>
+          {onClear && (
+            <button
+              onClick={() => { if (window.confirm("Clear all scan history and dashboard metrics?")) onClear(); }}
+              style={{
+                background: "rgba(244,67,54,0.12)", border: "1px solid rgba(244,67,54,0.35)",
+                color: "#f44336", borderRadius: 10, padding: "8px 18px", cursor: "pointer",
+                fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
+              }}
+            >
+              🗑 Clear All
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Summary tiles ─────────────────────── */}
@@ -185,7 +201,7 @@ export default function Dashboard({ sessionStats }) {
       </div>
 
       <p className="db-note">
-        💡 Data resets each browser session. Use the <strong>Benchmark</strong> page to run controlled experiments and export CSV for your thesis.
+        💡 Metrics persist across page refreshes. Use <strong>Clear All</strong> to reset everything (history + metrics). Use the <strong>Benchmark</strong> page for controlled experiments.
       </p>
     </div>
   );

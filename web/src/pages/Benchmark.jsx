@@ -117,9 +117,10 @@ export default function Benchmark({ serverUp, onScanResult }) {
     setRunning(true);
     setResults({ edge: null, hybrid: null, cloud: null });
     setErrors({ edge: null, hybrid: null, cloud: null });
-    setLoadings({ edge: true, hybrid: true, cloud: true });
+    setLoadings({ edge: true, hybrid: false, cloud: false });
 
     const runMode = async (mode) => {
+      setLoadings((prev) => ({ ...prev, [mode]: true }));
       try {
         const data = await diagnoseImage(file, mode);
         setResults((prev) => ({ ...prev, [mode]: data }));
@@ -135,7 +136,12 @@ export default function Benchmark({ serverUp, onScanResult }) {
       }
     };
 
-    const allResults = await Promise.all(["edge", "hybrid", "cloud"].map(runMode));
+    // Run sequentially — prevents OOM on server with large models
+    const allResults = [];
+    for (const mode of ["edge", "hybrid", "cloud"]) {
+      const r = await runMode(mode);
+      allResults.push(r);
+    }
     const successful = allResults.filter(Boolean);
     if (successful.length > 0) {
       setRuns((prev) => [

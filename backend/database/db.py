@@ -36,6 +36,15 @@ class ScanRecord(SQLModel, table=True):
     mode: str          # "cloud" | "hybrid" | "edge"
     latency_ms: float
 
+    # Image (base64 JPEG, optional)
+    image_b64: Optional[str] = Field(default=None)
+
+    # Top3 predictions (stored as JSON string)
+    top3_json: Optional[str] = Field(default=None)
+
+    # Infected area from segmentation
+    infected_area: Optional[float] = Field(default=None)
+
 
 # ── Training data table ──────────────────────────────────────────
 class TrainingRecord(SQLModel, table=True):
@@ -76,6 +85,9 @@ async def save_scan(
     treatment: dict,
     mode: str,
     latency_ms: float,
+    image_b64: Optional[str] = None,
+    top3: Optional[list] = None,
+    infected_area: Optional[float] = None,
 ) -> ScanRecord:
     record = ScanRecord(
         device_id=device_id,
@@ -87,6 +99,9 @@ async def save_scan(
         treatment_json=json.dumps(treatment),
         mode=mode,
         latency_ms=latency_ms,
+        image_b64=image_b64,
+        top3_json=json.dumps(top3) if top3 else None,
+        infected_area=infected_area,
     )
     async with AsyncSession(async_engine) as session:
         session.add(record)
@@ -122,8 +137,8 @@ async def save_training(
 
 async def get_training_stats() -> dict:
     async with AsyncSession(async_engine) as session:
-        result = await session.exec(select(TrainingRecord))
-        records = result.all()
+        result = await session.execute(select(TrainingRecord))
+        records = result.scalars().all()
     total = len(records)
     correct = sum(1 for r in records if r.was_correct)
     by_label: dict = {}
@@ -138,12 +153,22 @@ async def get_training_stats() -> dict:
     }
 
 
+async def delete_history(device_id: str) -> int:
+    from sqlalchemy import delete as sa_delete
+    async with AsyncSession(async_engine) as session:
+        result = await session.execute(
+            sa_delete(ScanRecord).where(ScanRecord.device_id == device_id)
+        )
+        await session.commit()
+        return result.rowcount
+
+
 async def get_history(device_id: str, limit: int = 20) -> list[ScanRecord]:
     async with AsyncSession(async_engine) as session:
-        result = await session.exec(
+        result = await session.execute(
             select(ScanRecord)
             .where(ScanRecord.device_id == device_id)
             .order_by(ScanRecord.timestamp.desc())
             .limit(limit)
         )
-        return result.all()
+        return result.scalars().all()

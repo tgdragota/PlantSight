@@ -97,12 +97,33 @@ async def diagnose(
 
     # ── 4. Persist scan (fire-and-forget, non-blocking) ──────────
     try:
+        import base64
+        img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+        # Limit to ~500KB to avoid huge DB — resize if needed
+        if len(img_b64) > 700_000:
+            from PIL import Image
+            import io
+            pil = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            pil.thumbnail((400, 400))
+            buf = io.BytesIO()
+            pil.save(buf, format="JPEG", quality=60)
+            img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+        infected_area = None
+        if seg and seg.get("infected_pct") is not None:
+            infected_area = seg["infected_pct"]
+        elif seg and seg.get("infected_area") is not None:
+            infected_area = seg["infected_area"]
+
         await save_scan(
             device_id=device_id,
             classification=cls,
             treatment=treatment,
             mode=mode,
             latency_ms=total_ms,
+            image_b64=img_b64,
+            top3=cls.get("top3"),
+            infected_area=infected_area,
         )
     except Exception as e:
         print(f"[WARN] Could not persist scan: {e}")

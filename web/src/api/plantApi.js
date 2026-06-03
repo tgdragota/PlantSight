@@ -99,6 +99,16 @@ export async function getHistory(limit = 20) {
   return res.json();
 }
 
+// ── Clear history ─────────────────────────────────────────────────────────────
+export async function clearHistory() {
+  const res = await fetch(
+      `${API_BASE}/api/history?device_id=${getDeviceId()}`,
+      { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error("Could not clear history");
+  return res.json();
+}
+
 // ── Health check ──────────────────────────────────────────────────────────────
 export async function checkHealth() {
   try {

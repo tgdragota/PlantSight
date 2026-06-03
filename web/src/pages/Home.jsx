@@ -6,6 +6,97 @@ import SegmentationOverlay from "../components/SegmentationOverlay";
 import TreatmentPanel from "../components/TreatmentPanel";
 import { diagnoseImage } from "../api/plantApi";
 
+const API_BASE = import.meta?.env?.VITE_API_URL ?? ""; // v2
+
+function ConfirmModal({ result, imageFile, onClose }) {
+  const [wasCorrect, setWasCorrect] = useState(null);
+  const [correction, setCorrection] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    const confirmedLabel = wasCorrect
+      ? result.classification.disease_class
+      : correction.trim();
+    if (!wasCorrect && !confirmedLabel) return;
+    setSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", imageFile);
+      fd.append("confirmed_label", confirmedLabel);
+      fd.append("original_label", result.classification.disease_class);
+      fd.append("was_correct", wasCorrect ? "true" : "false");
+      fd.append("confidence", result.classification.confidence);
+      fd.append("mode", result.inference_meta?.mode ?? "cloud");
+      await fetch(`${API_BASE}/api/confirm`, { method: "POST", body: fd });
+      setDone(true);
+    } catch (e) {
+      alert("Could not submit: " + e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={onClose}>
+      <div style={{ background: "#0d1a0d", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 28, maxWidth: 460, width: "100%" }} onClick={e => e.stopPropagation()}>
+        {done ? (
+          <div style={{ textAlign: "center", padding: "16px 0" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+            <div style={{ color: "#00e676", fontWeight: 700, fontSize: 16, marginBottom: 8 }}>
+              {wasCorrect ? "Diagnosis confirmed!" : `Correction saved!`}
+            </div>
+            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>This sample will help improve the AI model.</p>
+            <button onClick={onClose} style={{ marginTop: 20, background: "rgba(255,255,255,0.08)", border: "none", color: "#e8f5e9", borderRadius: 10, padding: "10px 24px", cursor: "pointer", fontSize: 14 }}>Close</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ color: "#e8f5e9", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>Confirm Diagnosis</div>
+            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginBottom: 20 }}>
+              Predicted: <span style={{ color: "#00e676" }}>{result.classification.disease_label}</span>
+              {" "}({Math.round(result.classification.confidence * 100)}%)
+            </div>
+
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, marginBottom: 14 }}>Is this diagnosis correct?</div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+              <button onClick={() => setWasCorrect(true)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: `2px solid ${wasCorrect === true ? "#00e676" : "rgba(255,255,255,0.1)"}`, background: wasCorrect === true ? "rgba(0,230,118,0.12)" : "rgba(255,255,255,0.04)", color: wasCorrect === true ? "#00e676" : "rgba(255,255,255,0.6)", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+                ✓ Yes, correct
+              </button>
+              <button onClick={() => setWasCorrect(false)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: `2px solid ${wasCorrect === false ? "#f44336" : "rgba(255,255,255,0.1)"}`, background: wasCorrect === false ? "rgba(244,67,54,0.12)" : "rgba(255,255,255,0.04)", color: wasCorrect === false ? "#f44336" : "rgba(255,255,255,0.6)", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+                ✗ No, wrong
+              </button>
+            </div>
+
+            {wasCorrect === false && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginBottom: 8 }}>Enter correct diagnosis (e.g. Tomato___Late_blight):</div>
+                <input
+                  value={correction}
+                  onChange={e => setCorrection(e.target.value)}
+                  placeholder="Plant___Disease_name"
+                  style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "10px 14px", color: "#e8f5e9", fontSize: 14, boxSizing: "border-box" }}
+                />
+              </div>
+            )}
+
+            {wasCorrect !== null && (
+              <button
+                onClick={submit}
+                disabled={submitting || (wasCorrect === false && !correction.trim())}
+                style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "none", background: submitting ? "rgba(255,171,64,0.2)" : "rgba(255,171,64,0.85)", color: "#0d1a0d", fontWeight: 800, fontSize: 15, cursor: submitting ? "not-allowed" : "pointer" }}
+              >
+                {submitting ? "Saving…" : "Save to Training Dataset"}
+              </button>
+            )}
+
+            <button onClick={onClose} style={{ width: "100%", marginTop: 10, padding: "10px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "rgba(255,255,255,0.35)", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const MODE_META = {
   edge:   { icon: "📱", color: "#00e676", label: "Edge AI",   desc: "On-device · Offline · Fast" },
   hybrid: { icon: "🔀", color: "#ab47bc", label: "Hybrid",    desc: "Edge classify + Cloud segment" },
@@ -51,12 +142,14 @@ export default function Home({ serverUp, sessionStats, onScanResult }) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
   const [benchmarks, setBenchmarks] = useState([]);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleImage = useCallback((f, previewUrl) => {
     setFile(f);
     setPreview(previewUrl);
     setResult(null);
     setError(null);
+    setShowConfirm(false);
   }, []);
 
   const handleDiagnose = async () => {
@@ -102,6 +195,9 @@ export default function Home({ serverUp, sessionStats, onScanResult }) {
 
   return (
     <div className="home-page">
+      {showConfirm && result && (
+        <ConfirmModal result={result} imageFile={file} onClose={() => setShowConfirm(false)} />
+      )}
 
       {/* ── Hero ─────────────────────────────────── */}
       <section className="hero">
@@ -179,6 +275,27 @@ export default function Home({ serverUp, sessionStats, onScanResult }) {
             <>
               <ResultCard result={result} />
               <TreatmentPanel treatment={result.treatment} />
+              <div style={{
+                marginTop: 12, background: "rgba(255,171,64,0.05)",
+                border: "1px solid rgba(255,171,64,0.2)",
+                borderRadius: 16, padding: "14px 18px",
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ background: "rgba(255,171,64,0.15)", borderRadius: 8, padding: "6px 8px", fontSize: 10, fontWeight: 900, color: "#ffab40", letterSpacing: 0.5 }}>DB</div>
+                  <div>
+                    <div style={{ color: "#ffab40", fontWeight: 700, fontSize: 13 }}>Was this diagnosis correct?</div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 2 }}>Help improve the AI model</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowConfirm(true)} style={{
+                  padding: "8px 16px", borderRadius: 10, border: "1.5px solid rgba(255,171,64,0.4)",
+                  background: "rgba(255,171,64,0.12)", color: "#ffab40",
+                  fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap",
+                }}>
+                  Confirm
+                </button>
+              </div>
             </>
           ) : (
             <div className="placeholder">
@@ -191,6 +308,7 @@ export default function Home({ serverUp, sessionStats, onScanResult }) {
           )}
         </div>
       </section>
+
     </div>
   );
 }
