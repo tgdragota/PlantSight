@@ -1,4 +1,13 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+
+const BM_RUNS_KEY = "plantsight_benchmark_runs";
+function loadRuns() {
+  try {
+    const saved = localStorage.getItem(BM_RUNS_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return [];
+}
 import ImageUpload from "../components/ImageUpload";
 import SegmentationOverlay from "../components/SegmentationOverlay";
 import { diagnoseImage } from "../api/plantApi";
@@ -103,7 +112,7 @@ export default function Benchmark({ serverUp, onScanResult }) {
   const [results, setResults] = useState({ edge: null, hybrid: null, cloud: null });
   const [loadings, setLoadings] = useState({ edge: false, hybrid: false, cloud: false });
   const [errors, setErrors]   = useState({ edge: null, hybrid: null, cloud: null });
-  const [runs, setRuns]       = useState([]);
+  const [runs, setRuns]       = useState(loadRuns);
 
   const handleImage = useCallback((f, previewUrl) => {
     setFile(f);
@@ -144,14 +153,18 @@ export default function Benchmark({ serverUp, onScanResult }) {
     }
     const successful = allResults.filter(Boolean);
     if (successful.length > 0) {
-      setRuns((prev) => [
-        {
-          id: Date.now(),
-          timestamp: new Date().toLocaleTimeString(),
-          results: successful,
-        },
-        ...prev,
-      ]);
+      setRuns((prev) => {
+        const next = [
+          {
+            id: Date.now(),
+            timestamp: new Date().toLocaleTimeString(),
+            results: successful,
+          },
+          ...prev,
+        ];
+        try { localStorage.setItem(BM_RUNS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+        return next;
+      });
     }
     setRunning(false);
   };
@@ -168,6 +181,11 @@ export default function Benchmark({ serverUp, onScanResult }) {
     a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
     a.download = "plantsight_benchmark_runs.csv";
     a.click();
+  };
+
+  const clearRuns = () => {
+    setRuns([]);
+    try { localStorage.removeItem(BM_RUNS_KEY); } catch { /* ignore */ }
   };
 
   const hasAnyResult = Object.values(results).some(Boolean);
@@ -213,9 +231,14 @@ export default function Benchmark({ serverUp, onScanResult }) {
             <p className="bm-warn">⚠ Server offline — Edge mode only works locally</p>
           )}
           {runs.length > 0 && (
-            <button className="btn-secondary" onClick={downloadCSV} style={{ marginTop: 8 }}>
-              📥 Export {runs.length} run(s) to CSV
-            </button>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button className="btn-secondary" onClick={downloadCSV} style={{ flex: 1 }}>
+                📥 Export {runs.length} run(s) to CSV
+              </button>
+              <button onClick={clearRuns} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(244,67,54,0.35)", background: "rgba(244,67,54,0.1)", color: "#f44336", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                🗑 Clear
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -62,6 +62,7 @@ export default function App() {
   const clearAll = async () => {
     try { await clearHistory(); } catch { /* history clear failed, continue */ }
     try { localStorage.removeItem(STATS_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem("plantsight_benchmark_runs"); } catch { /* ignore */ }
     setSessionStats(INITIAL_STATS);
   };
 
