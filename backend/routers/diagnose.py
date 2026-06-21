@@ -110,7 +110,9 @@ async def diagnose(
             img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
         infected_area = None
-        if seg and seg.get("infected_pct") is not None:
+        if seg and seg.get("infected_area_pct") is not None:
+            infected_area = seg["infected_area_pct"]
+        elif seg and seg.get("infected_pct") is not None:
             infected_area = seg["infected_pct"]
         elif seg and seg.get("infected_area") is not None:
             infected_area = seg["infected_area"]

@@ -136,8 +136,16 @@ export default function Benchmark({ serverUp, onScanResult }) {
         setLoadings((prev) => ({ ...prev, [mode]: false }));
         const latency = data.inference_meta?.latency_ms ?? 0;
         const conf    = data.classification?.confidence ?? 0;
+        const infectedPct = data.segmentation?.infected_area_pct ?? null;
         onScanResult(mode, latency, conf);
-        return { mode, latency, conf, disease: data.classification?.disease_label };
+        return {
+          mode,
+          latency,
+          conf,
+          disease: data.classification?.disease_label,
+          infectedPct,
+          filename: file?.name ?? "",
+        };
       } catch (e) {
         setErrors((prev) => ({ ...prev, [mode]: e.message }));
         setLoadings((prev) => ({ ...prev, [mode]: false }));
@@ -173,10 +181,18 @@ export default function Benchmark({ serverUp, onScanResult }) {
     const rows = [];
     runs.forEach((run) => {
       run.results.forEach((r) => {
-        rows.push(`${run.timestamp},${r.mode},${r.latency},${Math.round(r.conf * 100)}%,${r.disease}`);
+        // "severity" is left blank on purpose — there is no automatic
+        // Healthy/Mild/Severe classifier based on mask area, so tag it
+        // yourself after export based on which image you fed in for this run.
+        rows.push(
+          `${run.timestamp},${r.mode},${r.latency},${Math.round(r.conf * 100)}%,${r.disease},${r.infectedPct ?? ""},${r.filename ?? ""},`
+        );
       });
     });
-    const csv = ["timestamp,mode,latency_ms,confidence,disease", ...rows].join("\n");
+    const csv = [
+      "timestamp,mode,latency_ms,confidence,disease,infected_area_pct,filename,severity",
+      ...rows,
+    ].join("\n");
     const a = document.createElement("a");
     a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
     a.download = "plantsight_benchmark_runs.csv";
@@ -289,7 +305,7 @@ export default function Benchmark({ serverUp, onScanResult }) {
           <h4>Run History</h4>
           <table className="db-table">
             <thead>
-              <tr><th>Time</th><th>Mode</th><th>Latency</th><th>Confidence</th><th>Disease</th></tr>
+              <tr><th>Time</th><th>Mode</th><th>Latency</th><th>Confidence</th><th>Disease</th><th>Infected Area</th></tr>
             </thead>
             <tbody>
               {runs.flatMap((run) =>
@@ -304,6 +320,7 @@ export default function Benchmark({ serverUp, onScanResult }) {
                       <td>{r.latency}ms</td>
                       <td>{Math.round(r.conf * 100)}%</td>
                       <td>{r.disease}</td>
+                      <td>{r.infectedPct != null ? `${r.infectedPct}%` : "—"}</td>
                     </tr>
                   );
                 })

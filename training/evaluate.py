@@ -454,6 +454,19 @@ def main():
             fp32_file_mb = os.path.getsize(args.tflite_fp32) / 1e6
             print(f"   Top-1: {top1_fp32:.2f}%")
             print(f"   P50={np.percentile(times_fp32,50):.1f}ms  P95={np.percentile(times_fp32,95):.1f}ms")
+
+            # Per-class breakdown (same shape as the PyTorch/Cloud report,
+            # needed to build the Edge vs Cloud per-class table)
+            unique_labels_fp32 = sorted(list(set(labels.tolist())))
+            used_names_fp32 = [class_names[i] for i in unique_labels_fp32]
+            class_report_fp32 = classification_report(
+                labels, preds,
+                labels=unique_labels_fp32,
+                target_names=used_names_fp32,
+                output_dict=True,
+                zero_division=0,
+            )
+
             report["tflite_fp32"] = {
                 "top1_acc": round(top1_fp32, 4),
                 "size_mb":  round(fp32_file_mb, 2),
@@ -462,6 +475,7 @@ def main():
                     "p95":  round(np.percentile(times_fp32, 95), 2),
                     "mean": round(times_fp32.mean(), 2),
                 },
+                "per_class": class_report_fp32,
             }
     else:
         print("\n[3/5] TFLite FP32 — skipped (pass --tflite_fp32 to evaluate)")
@@ -477,6 +491,18 @@ def main():
             acc_drop = top1_pt - top1_int8
             print(f"   Top-1: {top1_int8:.2f}%  (accuracy drop from PyTorch: {acc_drop:.2f}%)")
             print(f"   P50={np.percentile(times_int8,50):.1f}ms  P95={np.percentile(times_int8,95):.1f}ms")
+
+            # Per-class breakdown — this is what Table 9 (Edge column) needs
+            unique_labels_int8 = sorted(list(set(labels.tolist())))
+            used_names_int8 = [class_names[i] for i in unique_labels_int8]
+            class_report_int8 = classification_report(
+                labels, preds,
+                labels=unique_labels_int8,
+                target_names=used_names_int8,
+                output_dict=True,
+                zero_division=0,
+            )
+
             report["tflite_int8"] = {
                 "top1_acc":     round(top1_int8, 4),
                 "accuracy_drop": round(acc_drop, 4),
@@ -486,6 +512,7 @@ def main():
                     "p95":  round(np.percentile(times_int8, 95), 2),
                     "mean": round(times_int8.mean(), 2),
                 },
+                "per_class": class_report_int8,
             }
     else:
         print("\n[4/5] TFLite INT8 — skipped (pass --tflite_int8 to evaluate)")
