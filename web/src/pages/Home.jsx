@@ -4,7 +4,7 @@ import ImageUpload from "../components/ImageUpload";
 import ResultCard from "../components/ResultCard";
 import SegmentationOverlay from "../components/SegmentationOverlay";
 import TreatmentPanel from "../components/TreatmentPanel";
-import { diagnoseImage } from "../api/plantApi";
+import { diagnoseImage, getDeviceId } from "../api/plantApi";
 
 const API_BASE = import.meta?.env?.VITE_API_URL ?? ""; // v2
 
@@ -28,7 +28,12 @@ function ConfirmModal({ result, imageFile, onClose }) {
       fd.append("was_correct", wasCorrect ? "true" : "false");
       fd.append("confidence", result.classification.confidence);
       fd.append("mode", result.inference_meta?.mode ?? "cloud");
-      await fetch(`${API_BASE}/api/confirm`, { method: "POST", body: fd });
+      fd.append("device_id", getDeviceId());
+      const res = await fetch(`${API_BASE}/api/confirm`, { method: "POST", body: fd });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`Server returned ${res.status}: ${errText}`);
+      }
       setDone(true);
     } catch (e) {
       alert("Could not submit: " + e.message);

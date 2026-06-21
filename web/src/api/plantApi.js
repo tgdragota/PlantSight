@@ -14,7 +14,7 @@
 const API_BASE = import.meta?.env?.VITE_API_URL ?? "";
 
 // ── Device ID ─────────────────────────────────────────────────────────────────
-function getDeviceId() {
+export function getDeviceId() {
   const KEY = "plantsight_device_id";
   let id = null;
 
